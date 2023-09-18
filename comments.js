@@ -1,75 +1,46 @@
 //create web server
-const express = require('express'); // import express
-const router = express.Router(); // create object router
-const mongoose = require('mongoose'); // import mongoose
-const passport = require('passport'); // import passport
+const express = require('express');
+const app = express();
+const path = require('path');
+const bodyParser = require('body-parser');
+const fs = require('fs');
+const jsonParser = bodyParser.json();
+const urlencodedParser = bodyParser.urlencoded({ extended: false });
+const { v4: uuidv4 } = require('uuid');
 
-// Load Comment model
-const Comment = require('../../models/Comment');
-// Load Post model
-const Post = require('../../models/Post');
-
-// @route   GET api/comments/test
-// @desc    Tests comments route
-// @access  Public
-router.get('/test', (req, res) => res.json({ msg: 'Comments Works' }));
-
-// @route   GET api/comments
-// @desc    Get comments
-// @access  Public
-router.get('/', (req, res) => {
-  Comment.find()
-    .sort({ date: -1 })
-    .then(comments => res.json(comments))
-    .catch(err => res.status(404).json({ nocommentsfound: 'No comments found' }));
+//create server
+app.listen(3000, function () {
+    console.log('Server started on port 3000');
 });
 
-// @route   GET api/comments/:id
-// @desc    Get comment by id
-// @access  Public
-router.get('/:id', (req, res) => {
-  Comment.findById(req.params.id)
-    .then(comment => res.json(comment))
-    .catch(err =>
-      res.status(404).json({ nocommentfound: 'No comment found with that ID' })
-    );
+//create static files
+app.use(express.static(path.join(__dirname, 'public')));
+
+//create comments array
+let comments = [];
+
+//create get request
+app.get('/api/comments', function (req, res) {
+    res.send(comments);
 });
 
-// @route   POST api/comments
-// @desc    Create comment
-// @access  Private
-router.post(
-  '/',
-  passport.authenticate('jwt', { session: false }),
-  (req, res) => {
+//create post request
+app.post('/api/comments', jsonParser, function (req, res) {
+    if (!req.body) return res.sendStatus(400);
+    let comment = {
+        id: uuidv4(),
+        name: req.body.name,
+        comment: req.body.comment,
+        date: req.body.date
+    };
+    comments.push(comment);
+    res.send(comment);
+});
 
-    const newComment = new Comment({
-      text: req.body.text,
-      name: req.body.name,
-      avatar: req.body.avatar,
-      user: req.user.id,
-      post: req.body.post,
-      date: Date.now()
-    });
-
-    newComment.save().then(comment => res.json(comment));
-  }
-);
-
-// @route   DELETE api/comments/:id
-// @desc    Delete comment
-// @access  Private
-router.delete(
-  '/:id',
-  passport.authenticate('jwt', { session: false }),
-  (req, res) => {
-
-    Comment.findById(req.params.id)
-      .then(comment => {
-        // Check for comment owner
-        if (comment.user.toString() !== req.user.id) {
-          return res.status(401).json({ notauthorized: 'User not authorized' });
-        }
-
-        // Delete
-        comment.remove
+//create delete request
+app.delete('/api/comments/:id', function (req, res) {
+    let id = req.params.id;
+    let index = comments.findIndex(comment => comment.id === id);
+    comments.splice(index, 1);
+    res.send(id);
+});
